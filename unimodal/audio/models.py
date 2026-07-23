@@ -61,8 +61,7 @@ def load_csv(path: str) -> pd.DataFrame:
     return pd.read_csv(io.StringIO(_fix_meld_mojibake(raw)))
 
 
-# ── Model loading ─────────────────────────────────────────────────────────────
-
+# Model loading
 def load_audio_model(cfg: AudioConfig):
     """
     Loads emotion2vec via FunASR. Returns (processor, model, embed_dim).
@@ -108,7 +107,6 @@ def get_model_weight_mb(cfg: AudioConfig) -> Optional[float]:
     return total / 1024**2 if total > 0 else None
 
 
-# ── Audio I/O ─────────────────────────────────────────────────────────────────
 
 _TARGET_DBFS       = -20.0
 _SILENCE_THRESHOLD = 1e-4
@@ -176,7 +174,6 @@ def load_wav(path: str, target_sr: int, max_seconds: Optional[float] = None,
     return wav.astype(np.float32, copy=False), sr, is_silent
 
 
-# ── FunASR inference helpers ──────────────────────────────────────────────────
 
 def _extract_funasr_embedding(res) -> np.ndarray:
     if isinstance(res, list) and len(res) > 0:
@@ -219,7 +216,6 @@ def _infer_funasr_embed_dim(model, sampling_rate: int) -> int:
     return int(_funasr_embed_one_utt(model, wav, sampling_rate).shape[-1])
 
 
-# ── Batch embedding ───────────────────────────────────────────────────────────
 
 @torch.no_grad()
 def embed_audio_batch(waves: List[np.ndarray], processor, model, device: str, 

@@ -10,31 +10,6 @@ import torch
 from transformers import AutoTokenizer, AutoModel
 
 
-#  Recommended models for MELD → SDT affective computing fusion:
-#
-#  Default (good balance of quality and size):
-#    "sentence-transformers/all-roberta-large-v1"     ← 1024-d, ~1.4GB, no task prefix needed,
-#                                                        trained with mean-pool + cosine objective
-#
-#  Lighter alternative:
-#    "sentence-transformers/all-mpnet-base-v2"        ← 768-d, ~420MB
-#
-#  Heavier / best quality (requires mandatory "query: " prefix):
-#    "intfloat/e5-large-v2"                           ← 1024-d, SOTA MTEB
-#
-#  Avoid for SDT fusion:
-#    "j-hartmann/emotion-english-distilroberta-base"  ← classifier backbone, head stripped,
-#    features are skewed toward 7-class token separation, not sentence semantics.
-#    "SamLowe/roberta-base-go_emotions"               ← same problem, 28-class classifier.
-#
-#  Why NOT a pure emotion classifier as encoder:
-#    SDT's cross-modal attention learns to align text↔audio↔video representations.
-#    For that to work, the text embedding needs to be a *rich semantic space*, not a
-#    compressed class-discriminative bottleneck. SBERT embeddings carry syntactic,
-#    semantic, and affective nuance — the SDT fusion layers extract what they need.
-#    A classifier backbone has already collapsed that richness into N-class directions.
-
-
 @dataclass
 class TextConfig:
     device: str = "cuda" if torch.cuda.is_available() else "cpu"

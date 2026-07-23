@@ -1,109 +1,3 @@
-"""
-extract_degraded_audio.py
-
-Applies waveform-level degradation BEFORE emotion2vec embedding for the
-test set only, producing a standalone audio pkl that assemble_degraded_pkl.py
-can patch into the combined pkl.
-
-Supports both IEMOCAP and MELD.  For MELD, train/dev CSVs are required
-(read-only) to compute the correct test-split dialogue ID offset — which must
-match the remapping used when the clean pkl was built.
-
-Degradations (teleassistance setting):
-  noise       — AWGN at specified SNR (models mic noise, home ambient sound)
-  packet_loss — VoIP 20ms packet silence (models network dropouts)
-
-Usage
------
-# IEMOCAP — noise
-python degrade_audio.py --dataset iemocap \
---iemocap_root /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release \
---out /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release/embeddings/degraded/audio/snr/iemocap_audio_noise_snr20.pkl \
---degradation noise --snr_db 20
-
-python degrade_audio.py --dataset iemocap \
-    --iemocap_root /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release \
-    --out /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release/embeddings/degraded/audio/snr/iemocap_audio_noise_snr10.pkl \
-    --degradation noise --snr_db 10
-
-python degrade_audio.py --dataset iemocap \
-    --iemocap_root /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release \
-    --out /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release/embeddings/degraded/audio/snr/iemocap_audio_noise_snr5.pkl \
-    --degradation noise --snr_db 5
-
-python degrade_audio.py --dataset iemocap \
-    --iemocap_root /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release \
-    --out /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release/embeddings/degraded/audio/snr/iemocap_audio_noise_snr0.pkl \
-    --degradation noise --snr_db 0
-
-python degrade_audio.py --dataset iemocap \
-    --iemocap_root /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release \
-    --out /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release/embeddings/degraded/audio/packet_loss/iemocap_audio_packet_loss01.pkl \
-    --degradation packet_loss --rate 0.1
-
-python degrade_audio.py --dataset iemocap \
-    --iemocap_root /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release \
-    --out /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release/embeddings/degraded/audio/packet_loss/iemocap_audio_packet_loss02.pkl \
-    --degradation packet_loss --rate 0.2
-
-python degrade_audio.py --dataset iemocap \
-    --iemocap_root /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release \
-    --out /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release/embeddings/degraded/audio/packet_loss/iemocap_audio_packet_loss03.pkl \
-    --degradation packet_loss --rate 0.3
-
-python degrade_audio.py --dataset iemocap \
-    --iemocap_root /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release \
-    --out /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release/embeddings/degraded/audio/packet_loss/iemocap_audio_packet_loss05.pkl \
-    --degradation packet_loss --rate 0.5
-
-# MELD — packet loss 30%
-python degrade_audio.py --dataset meld \
-    --train_csv /media/ssd2/oriol/MELD/train_sent_emo.csv \
-    --dev_csv   /media/ssd2/oriol/MELD/dev_sent_emo.csv \
-    --test_csv  /media/ssd2/oriol/MELD/test_sent_emo.csv \
-    --test_audio_dir /media/ssd2/oriol/MELD/test/wav16k \
-    --out /media/ssd2/oriol/MELD/embeddings/degraded/audio/meld_audio_noise_snr5.pkl \
-    --degradation noise --snr_db 5
-
-python degrade_audio.py --dataset meld \
-    --train_csv /media/ssd2/oriol/MELD/train_sent_emo.csv \
-    --dev_csv   /media/ssd2/oriol/MELD/dev_sent_emo.csv \
-    --test_csv  /media/ssd2/oriol/MELD/test_sent_emo.csv \
-    --test_audio_dir /media/ssd2/oriol/MELD/test/wav16k \
-    --out /media/ssd2/oriol/MELD/embeddings/degraded/meld_audio_packet_loss01.pkl \
-    --degradation packet_loss --rate 0.1
-
-python degrade_audio.py --dataset meld \
-    --train_csv /media/ssd2/oriol/MELD/train_sent_emo.csv \
-    --dev_csv   /media/ssd2/oriol/MELD/dev_sent_emo.csv \
-    --test_csv  /media/ssd2/oriol/MELD/test_sent_emo.csv \
-    --test_audio_dir /media/ssd2/oriol/MELD/test/wav16k \
-    --out /media/ssd2/oriol/MELD/embeddings/degraded/meld_audio_packet_loss02.pkl \
-    --degradation packet_loss --rate 0.2
-    
-python degrade_audio.py --dataset meld \
-    --train_csv /media/ssd2/oriol/MELD/train_sent_emo.csv \
-    --dev_csv   /media/ssd2/oriol/MELD/dev_sent_emo.csv \
-    --test_csv  /media/ssd2/oriol/MELD/test_sent_emo.csv \
-    --test_audio_dir /media/ssd2/oriol/MELD/test/wav16k \
-    --out /media/ssd2/oriol/MELD/embeddings/degraded/meld_audio_packet_loss03.pkl \
-    --degradation packet_loss --rate 0.3
-
-python degrade_audio.py --dataset meld \
-    --train_csv /media/ssd2/oriol/MELD/train_sent_emo.csv \
-    --dev_csv   /media/ssd2/oriol/MELD/dev_sent_emo.csv \
-    --test_csv  /media/ssd2/oriol/MELD/test_sent_emo.csv \
-    --test_audio_dir /media/ssd2/oriol/MELD/test/wav16k \
-    --out /media/ssd2/oriol/MELD/embeddings/degraded/meld_audio_packet_loss05.pkl \
-    --degradation packet_loss --rate 0.5
-
-    
-Suggested sweeps
-----------------
-  noise       : --snr_db   20 10 5 0
-  packet_loss : --rate  0.1 0.2 0.3 0.5
-"""
-
 import os
 import argparse
 import pickle
@@ -120,8 +14,7 @@ from .models import (
 )
 
 
-# ── waveform-level degradations ───────────────────────────────────────────────
-
+# Waveform degradations
 def degrade_noise(waveform: np.ndarray, snr_db: float) -> np.ndarray:
     """AWGN at given SNR (dB). snr_db=0 → noise power = signal power."""
     rms       = float(np.sqrt(np.mean(waveform ** 2))) + 1e-9
@@ -140,8 +33,7 @@ def degrade_packet_loss(waveform: np.ndarray, sr: int,
     return out
 
 
-# ── dataset helpers ───────────────────────────────────────────────────────────
-
+# Helpers
 def _load_meld_test(train_csv, dev_csv, test_csv, test_audio_dir, audio_ext):
     """
     Returns (test_df_with_paths, test_map, id_map=None).
@@ -187,7 +79,6 @@ def _load_iemocap_test(iemocap_root):
     return test_df, test_map, id_map
 
 
-# ── main ──────────────────────────────────────────────────────────────────────
 
 def main():
     ap = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -217,7 +108,6 @@ def main():
                     help="[packet_loss] Fraction of 20ms packets silenced. Sweep: 0.1 0.2 0.3 0.5")
     args = ap.parse_args()
 
-    # ── validate args ──────────────────────────────────────────────────────────
     if args.dataset == "iemocap" and not args.iemocap_root:
         ap.error("--dataset iemocap requires --iemocap_root")
     if args.dataset == "meld" and not all(
@@ -229,7 +119,6 @@ def main():
            else f"pktloss{int(args.rate * 100)}pct")
     print(f"Dataset: {args.dataset}  |  Degradation: {tag}")
 
-    # ── load data ──────────────────────────────────────────────────────────────
     if args.dataset == "iemocap":
         test_df, test_map, id_map = _load_iemocap_test(args.iemocap_root)
     else:
@@ -239,7 +128,6 @@ def main():
         )
     print(f"Test utterances: {len(test_df)}")
 
-    # ── load model ─────────────────────────────────────────────────────────────
     cfg = AudioConfig(
         device=args.device,
         model_id=args.model_id,
@@ -249,7 +137,6 @@ def main():
     _, model, embed_dim = load_audio_model(cfg)
     print(f"embed_dim: {embed_dim}")
 
-    # ── extract ────────────────────────────────────────────────────────────────
     out: dict = {}
     n_ok = n_missing = 0
 
