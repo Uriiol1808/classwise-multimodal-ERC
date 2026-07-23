@@ -50,22 +50,6 @@ See [`multimodal/README.md`](multimodal/README.md) and [`unimodal/README.md`](un
  
 Experiments use **MELD** (7-class, multi-party, 13,708 utterances, official train/val/test splits) and **IEMOCAP** (6-class, dyadic, 7,433 utterances, sessions 1-4 train / session 5 test). Neither dataset is redistributed here — obtain them from their original sources under their respective licenses and set the paths expected by `unimodal/*/main.py` and `multimodal/dataloader.py`. IEMOCAP's continuous valence-arousal annotations are used to derive dataset-specific class centroids for the valence-arousal prior; MELD uses canonical Russell circumplex coordinates instead, as it has no continuous annotations.
 
-## Setup
- 
-Two environments are needed:
- 
-```bash
-# main environment (unimodal extraction except action units, and multimodal training/inference)
-conda env create -f environment.yml
-conda activate sdt_env
- 
-# separate environment for action-unit extraction (py-feat)
-conda env create -f environment_au.yml
-conda activate au_env
-```
- 
-> Add your `environment.yml` / `environment_au.yml` (or `requirements.txt`) alongside this README before publishing; none is committed yet.
-
 ## Pipeline
  
 1. **Extract unimodal features** for text, audio, and visual streams — see [`unimodal/README.md`](unimodal/README.md).
