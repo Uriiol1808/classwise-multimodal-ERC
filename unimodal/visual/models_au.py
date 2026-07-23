@@ -1,17 +1,3 @@
-"""
-models_au.py
-============
-Standalone Action Unit extraction for MELD and IEMOCAP.
-No relative imports — runs in the au_env environment independently.
-
-Dependencies:
-    pip install py-feat facenet-pytorch opencv-python-headless tqdm numpy==1.26.4 pandas
-
-Usage:
-    from models_au import AUConfig, load_au_models, extract_utterance_au_embedding
-    from models_au import load_iemocap_au_dataframes
-"""
-
 import os
 import re
 import cv2

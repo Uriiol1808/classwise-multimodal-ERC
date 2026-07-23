@@ -24,32 +24,15 @@ _TRANS_LINE_RE = re.compile(r"^(\S+)\s+\[\d+\.\d+-\d+\.\d+\]:\s*(.*)")
 _EMO_LINE_RE   = re.compile(r"^\[(\d+\.\d+)\s*-\s*(\d+\.\d+)\]\s+(\S+)\s+(\w+)")
 
 
-#  Recommended models for MELD → SDT visual tower:
-#
-#  Default:
-#    "dima806/facial_emotions_image_detection"  ← ViT trained on in-the-wild faces,
-#                                                  better domain match for Friends TV
-#  Original (lab-posed expressions, FER+ dataset):
-#    "trpakov/vit-face-expression"              ← FER+ domain gap with naturalistic TV
-
-
 @dataclass
 class VisualConfig:
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # ── Visual mode ───────────────────────────────────────────────────────────
-    # "vit"           : ViT appearance features (default, original behaviour)
-    # "landmarks"     : 3DDFA-V2 raw 3D landmarks, mean+std pooled → 408-d
-    # "landmarks_exp" : 3DDFA-V2 expression coefficients + pose, mean+std+delta → 39-d
     visual_mode: str = "vit"
 
-    # ── ViT settings (used when visual_mode == "vit") ─────────────────────────
     model_id: str = "dima806/facial_emotions_image_detection"
 
-    # ── 3DDFA-V2 settings (used when visual_mode == "landmarks") ─────────────
-    # Path to the cloned 3DDFA_V2 repo root (so we can import TDDFA_ONNX)
     tddfa_root: str = ""
-    # Path to the ONNX model file (e.g. mb1_120x120.onnx from VoViT weights)
     tddfa_onnx_path: str = ""
 
     # ── Shared settings ───────────────────────────────────────────────────────

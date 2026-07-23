@@ -1,57 +1,3 @@
-"""
-degrade_video.py
-
-Applies frame-level degradation BEFORE ViT/landmark embedding for the
-test set only. Supports IEMOCAP and MELD, and all three visual modes
-(vit, landmarks, landmarks_exp).
-
-Degradations (teleassistance setting):
-  blur      — Gaussian blur (σ px), applied to the WHOLE frame before face
-               detection. This is scene-level by design: motion blur,
-               out-of-focus webcam, and H.264 compression affect the entire
-               frame, not just the face region. At high σ, MTCNN may fail
-               to detect the face → fullframe_fallback fires naturally.
-  occlusion — Black rectangle over the lower part of the FACE BOUNDING BOX.
-               FACE-AWARE: MTCNN (or LightASD for multi-speaker scenes)
-               detects the speaker's face first; the lower occlude_frac of
-               that detected box is then zeroed before the crop is passed
-               to the encoder. This matches real lower-face occlusion
-               (mask, hand) and is consistent with the training degradation
-               pipeline (create_degraded_train_visual.py).
-
-Usage
------
-# IEMOCAP — blur σ=3 with ViT (scene-level, unchanged)
-python -m visual.degrade_video --dataset iemocap \
-    --iemocap_root /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release \
-    --visual_mode vit \
-    --out /media/ssd2/oriol/IEMOCAP/.../degraded/iemocap_vit_blur_s3.pkl \
-    --degradation blur --blur_sigma 3
-
-# IEMOCAP — face-aware occlusion 50% with ViT
-python -m visual.degrade_video --dataset iemocap \
-    --iemocap_root /media/ssd2/oriol/IEMOCAP/IEMOCAP_full_release \
-    --visual_mode vit \
-    --out /media/ssd2/oriol/IEMOCAP/.../degraded/iemocap_vit_occlude50.pkl \
-    --degradation occlusion --occlude_frac 0.5
-
-# MELD — face-aware occlusion 50% with landmarks (+ optional LightASD)
-python -m visual.degrade_video --dataset meld \
-    --train_csv /media/ssd2/oriol/MELD/train_sent_emo.csv \
-    --dev_csv   /media/ssd2/oriol/MELD/dev_sent_emo.csv \
-    --test_csv  /media/ssd2/oriol/MELD/test_sent_emo.csv \
-    --test_video_dir /media/ssd2/oriol/MELD/test \
-    --visual_mode landmarks \
-    --asd_weights /home/Imatge/oriol/unimodal/visual/pretrain_AVA_CVPR.model \
-    --out /media/ssd2/oriol/MELD/embeddings/degraded/meld_lm_occlude50.pkl \
-    --degradation occlusion --occlude_frac 0.5
-
-Suggested sweeps (run once per visual_mode × dataset)
-------------------------------------------------------
-  blur      : --blur_sigma    1 3 7 15
-  occlusion : --occlude_frac  0.25 0.5 0.75 1.0
-"""
-
 import os
 import re
 import io
@@ -87,7 +33,6 @@ from .models_au import (
 )
 
 
-# ── MELD CSV mojibake fix ──────────────────────────────────────────────────────
 
 def _fix_meld_mojibake(raw: bytes) -> str:
     text = raw.decode("utf-8", errors="replace")
@@ -107,8 +52,7 @@ def load_csv(path: str) -> pd.DataFrame:
     return pd.read_csv(io.StringIO(_fix_meld_mojibake(raw)))
 
 
-# ── Blur transform (scene-level — applied to whole frame, unchanged) ──────────
-
+# Degrade video
 def make_blur_transform(blur_sigma: float):
     """
     Gaussian blur at sigma pixels, applied to the WHOLE frame.
@@ -120,8 +64,6 @@ def make_blur_transform(blur_sigma: float):
         return cv2.GaussianBlur(frame_rgb, (0, 0), sigmaX=blur_sigma)
     return transform
 
-
-# ── Face-aware occlusion helpers (mirrors create_degraded_train_visual.py) ───
 
 def _sample_idxs(total, n_frames, start_sec=None, end_sec=None, fps=25.0):
     if start_sec is not None:
@@ -174,7 +116,6 @@ def _occlude_box(frame_rgb, x1, y1, x2, y2, occlude_frac):
     return out
 
 
-# ── Face-aware ViT extraction (occlusion path) ────────────────────────────────
 
 def _extract_vit_occlusion(
     video_path, mtcnn, processor, vit_model, device, embed_dim,
@@ -260,8 +201,6 @@ def _extract_vit_occlusion(
     return np.mean(np.stack(embs), 0).astype(np.float32) if embs else zero
 
 
-# ── Face-aware landmarks extraction (occlusion path) ──────────────────────────
-
 def _extract_landmarks_occlusion(
     video_path, mtcnn, tddfa, embed_dim, visual_mode,
     num_frames, face_margin, use_fullframe_fallback,
@@ -346,8 +285,6 @@ def _extract_landmarks_occlusion(
     cap.release()
     return pool_fn(feats, embed_dim)
 
-
-# ── Face-aware AU extraction (occlusion path) ──────────────────────────────────
 
 def _extract_au_occlusion(
     video_path, mtcnn, feat_detector, embed_dim,

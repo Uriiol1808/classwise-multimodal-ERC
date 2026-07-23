@@ -1,33 +1,3 @@
-"""
-main_au.py
-==========
-Extract Action Unit embeddings from MELD or IEMOCAP videos.
-Runs in the au_env environment — standalone, no package imports.
-
-Usage — IEMOCAP:
-    python main_au.py \
-        --dataset iemocap \
-        --iemocap_root /path/to/IEMOCAP_full_release \
-        --out data/iemocap_action_units.pkl
-
-Usage — MELD:
-    python main_au.py \
-        --dataset meld \
-        --train_csv  data/meld/train_sent_emo.csv \
-        --dev_csv    data/meld/dev_sent_emo.csv \
-        --test_csv   data/meld/test_sent_emo.csv \
-        --train_video_dir data/meld/train \
-        --dev_video_dir   data/meld/dev \
-        --test_video_dir  data/meld/test \
-        --out data/meld_action_units.pkl
-
-The output pkl has the same structure as all other visual pkls:
-    {dialogue_id (int): {utterance_id (int): np.ndarray(embed_dim,)}}
-
-D_visual for the resulting pkl = n_aus * 3  (default: 60 for the svm model).
-Pass --D_visual 60 to train.py when using this pkl.
-"""
-
 import io
 import os
 import re
@@ -324,38 +294,6 @@ def main():
         with open(id_map_path, "wb") as f:
             pickle.dump(id_map, f, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Saved id_map → {id_map_path}")
-
-    # ── Summary ───────────────────────────────────────────────────────────────
-    n_dialogues = len(visual)
-    n_utts      = sum(len(u_map) for u_map in visual.values())
-    total_utts  = n_train + n_dev + n_test
-    total_inf   = s_train + s_dev + s_test
-    avg_ms      = (total_inf / total_utts * 1000) if total_utts > 0 else 0.0
-    miss_total  = miss_train + miss_dev + miss_test
-
-    W = 56
-    print(f"\nSaved: {args.out}")
-    print(f"Dialogues: {n_dialogues}   Utterances: {n_utts}   D_visual: {embed_dim}")
-    if miss_total:
-        print(f"Missing videos: train={miss_train}  dev={miss_dev}  "
-              f"test={miss_test}  total={miss_total}")
-
-    print()
-    print("─" * W)
-    print(f"  {'Timing report':^{W-4}}")
-    print("─" * W)
-    print(f"  {'Split':<8}  {'utts':>6}  {'total':>8}  {'ms/utt':>8}")
-    print(f"  {'─'*6:<8}  {'─'*6:>6}  {'─'*8:>8}  {'─'*8:>8}")
-    for sp, n, s in [("train", n_train, s_train),
-                     ("dev",   n_dev,   s_dev),
-                     ("test",  n_test,  s_test)]:
-        ms = (s / n * 1000) if n > 0 else 0.0
-        print(f"  {sp:<8}  {n:>6}  {s:>7.1f}s  {ms:>7.2f}ms")
-    print(f"  {'─'*6:<8}  {'─'*6:>6}  {'─'*8:>8}  {'─'*8:>8}")
-    print(f"  {'total':<8}  {total_utts:>6}  {total_inf:>7.1f}s  {avg_ms:>7.2f}ms")
-    print(f"  wall time: {total_wall:.1f}s")
-    print("─" * W)
-    print(f"\n→ Use --D_visual {embed_dim} in train.py with this pkl.")
 
 
 if __name__ == "__main__":

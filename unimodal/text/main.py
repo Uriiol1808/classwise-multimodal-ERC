@@ -109,14 +109,12 @@ def add_split_text(out_nested: dict, df: pd.DataFrame, d_remap: dict[int, int], 
 def main():
     ap = argparse.ArgumentParser()
 
-    # ── dataset source ────────────────────────────────────────────────────────
     ap.add_argument("--dataset", choices=["meld", "iemocap"], default="meld",
                     help="Which dataset to extract from.")
-    # MELD args (ignored when --dataset iemocap)
     ap.add_argument("--train_csv", default=None)
     ap.add_argument("--dev_csv",   default=None)
     ap.add_argument("--test_csv",  default=None)
-    # IEMOCAP args (ignored when --dataset meld)
+
     ap.add_argument("--iemocap_root", default=None,
                     help="Path to IEMOCAP_full_release directory.")
     ap.add_argument("--iemocap_va_neg_thresh", type=float, default=2.0,
@@ -184,7 +182,6 @@ def main():
     print(f"  embed_dim           : {embed_dim}  (hidden={model.config.hidden_size}, pooling={cfg.pooling})")
     print()
 
-    # ── load data ─────────────────────────────────────────────────────────────
     id_map = None  # only populated for IEMOCAP
 
     if args.dataset == "meld":
@@ -199,9 +196,6 @@ def main():
             ap.error("--dataset iemocap requires --iemocap_root")
         train_df, dev_df, test_df, id_map = load_iemocap_dataframes(args.iemocap_root)
 
-        # Derive a MELD-style Sentiment column (positive/negative/neutral) from
-        # the per-utterance dimensional valence rating, so use_sentiment_signal
-        # works the same way it does for MELD.
         train_df = add_iemocap_sentiment(train_df, args.iemocap_va_neg_thresh, args.iemocap_va_pos_thresh)
         test_df  = add_iemocap_sentiment(test_df,  args.iemocap_va_neg_thresh, args.iemocap_va_pos_thresh)
 
@@ -241,11 +235,6 @@ def main():
     print()
 
     out: dict = {}
-    t_start = time.perf_counter()
-    n_train, s_train, ms_train = add_split_text(out, train_df, train_map, tokenizer, model, cfg, desc="Extracting text (train)")
-    n_dev,   s_dev,   ms_dev   = add_split_text(out, dev_df,   dev_map,   tokenizer, model, cfg, desc="Extracting text (dev)")
-    n_test,  s_test,  ms_test  = add_split_text(out, test_df,  test_map,  tokenizer, model, cfg, desc="Extracting text (test)")
-    total_wall = time.perf_counter() - t_start
 
     out = {
         d: dict(sorted(u_map.items()))
@@ -255,86 +244,11 @@ def main():
     with open(args.out, "wb") as f:
         pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    # For IEMOCAP: save the int→dialogue_name mapping next to the embeddings
-    # so the assembly script can reconstruct which row belongs to which dialog.
     if id_map is not None:
         id_map_path = args.out.replace(".pkl", "_id_map.pkl")
         with open(id_map_path, "wb") as f:
             pickle.dump(id_map, f, protocol=pickle.HIGHEST_PROTOCOL)
         print(f"Saved id_map → {id_map_path}")
-
-    n_dialogues = len(out)
-    n_utts      = sum(len(u_map) for u_map in out.values())
-    any_d       = next(iter(out))
-    any_u       = next(iter(out[any_d]))
-    actual_dim  = out[any_d][any_u].shape[0]
-
-    print("\nSaved:", args.out)
-    print("Processed rows:", {"train": n_train, "dev": n_dev, "test": n_test})
-    print(f"Dialogues: {n_dialogues}  Utterances: {n_utts}  Dim: {actual_dim}")
-    print(f"Example access: out[{any_d}][{any_u}].shape = {out[any_d][any_u].shape}")
-
-    total_inf  = s_train + s_dev + s_test
-    total_utts = n_train + n_dev + n_test
-    avg_ms_all = (total_inf / total_utts * 1000) if total_utts > 0 else 0.0
-
-    # ── Memory snapshot ───────────────────────────────────────────────────────
-    is_cuda = cfg.device.startswith("cuda") and torch.cuda.is_available()
-
-    if is_cuda:
-        dev_idx      = torch.cuda.current_device()
-        gpu_peak_mb  = torch.cuda.max_memory_allocated(dev_idx) / 1024**2
-        gpu_res_mb   = torch.cuda.memory_reserved(dev_idx)      / 1024**2
-        gpu_total_mb = torch.cuda.get_device_properties(dev_idx).total_memory / 1024**2
-
-    # CPU RSS: current process peak working set.
-    # psutil is optional — degrades gracefully if not installed.
-    cpu_rss_mb = None
-    try:
-        import psutil, os
-        cpu_rss_mb = psutil.Process(os.getpid()).memory_info().rss / 1024**2
-    except ImportError:
-        pass   # install with: pip install psutil
-
-    # ── Report ────────────────────────────────────────────────────────────────
-    W = 54
-    print()
-    print("─" * W)
-    print(f"  {'Timing & memory report':^{W-4}}")
-    print("─" * W)
-    print(f"  {'Split':<8}  {'utts':>6}  {'total':>8}  {'ms/utt':>8}")
-    print(f"  {'─'*6:<8}  {'─'*6:>6}  {'─'*8:>8}  {'─'*8:>8}")
-    print(f"  {'train':<8}  {n_train:>6}  {s_train:>7.1f}s  {ms_train:>7.2f}ms")
-    print(f"  {'dev':<8}  {n_dev:>6}  {s_dev:>7.1f}s  {ms_dev:>7.2f}ms")
-    print(f"  {'test':<8}  {n_test:>6}  {s_test:>7.1f}s  {ms_test:>7.2f}ms")
-    print(f"  {'─'*6:<8}  {'─'*6:>6}  {'─'*8:>8}  {'─'*8:>8}")
-    print(f"  {'total':<8}  {total_utts:>6}  {total_inf:>7.1f}s  {avg_ms_all:>7.2f}ms")
-    print(f"  wall time: {total_wall:.1f}s  (I/O + tokenization + inference)")
-    print()
-
-    if is_cuda:
-        print(f"  GPU  : {torch.cuda.get_device_name(dev_idx)}")
-        print(f"  Peak alloc  : {gpu_peak_mb:7.0f} MB  /  {gpu_total_mb:.0f} MB  "
-              f"({gpu_peak_mb / gpu_total_mb * 100:.1f}%)")
-        print(f"  Reserved    : {gpu_res_mb:7.0f} MB")
-    else:
-        print(f"  Device: CPU")
-        print(f"  Note  : GPU memory tracking unavailable on CPU.")
-        print(f"  Tip   : re-run with --limit 100 on CPU to get a fast timing baseline,")
-        print(f"          then compare against GPU with the same --limit value.")
-
-    if cpu_rss_mb is not None:
-        model_params = sum(p.numel() for p in model.parameters())
-        gpu_model_mb = model_params * 2 / 1024**2   # fp16 = 2 bytes
-        cpu_model_mb = model_params * 4 / 1024**2   # fp32 = 4 bytes
-        print(f"  Model weights (fp16): {gpu_model_mb:.0f} MB  (GPU)")
-        print(f"  Model weights (fp32): {cpu_model_mb:.0f} MB  (CPU equivalent)")
-        print(f"  CPU RSS     : {cpu_rss_mb:7.0f} MB  (process peak working set)")
-    else:
-        print(f"  CPU RSS     : n/a  (install psutil for CPU memory tracking)")
-
-    print("─" * W)
-
 
 if __name__ == "__main__":
     main()
