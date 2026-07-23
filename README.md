@@ -19,11 +19,15 @@ ERC requires integrating heterogeneous textual, audio, and visual cues while acc
 
 ## Results (weighted F1, mean over MELD + IEMOCAP)
  
+<div align="center">
+
 | Configuration | MELD | IEMOCAP | Mean |
 |---|---|---|---|
 | Updated SDT baseline | 75.49 | 69.50 | 72.50 |
 | + Appearance+geometry visual stream | 75.76 | 73.86 | 74.81 |
 | + Class-wise adaptive modality fusion | **75.93** | **74.11** | **75.02** |
+
+</div>
  
 The valence-arousal prior is evaluated separately on emotion-shift subsets (see paper Table 4): it improves shift-utterance accuracy by 0.30 points on MELD and 0.74 points on IEMOCAP, while leaving stable-utterance accuracy essentially unchanged.
  
